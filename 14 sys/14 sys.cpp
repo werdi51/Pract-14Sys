@@ -1,4 +1,4 @@
-﻿#include <windows.h>
+#include <windows.h>
 #include <iostream>
 #include <vector>
 #include <ctime>
@@ -16,9 +16,14 @@ struct ClientRecord {
     BOOL served;
     BOOL timeout;
 };
+struct ClientInfo
+{
+    ClientRecord Records;
+    std::string name;
+};
 
 struct ClubState {
-    ClientRecord clients[MAX_CLIENTS];
+    ClientInfo clients[MAX_CLIENTS];
     LONG currentVisitors;
     LONG maxVisitors;
     LONG servedCount;
@@ -30,12 +35,13 @@ HANDLE hSemaphore = NULL;
 CRITICAL_SECTION csConsole;
 
 DWORD WINAPI PC_Client(LPVOID lpParam) {
-    int clientId = (int)(uintptr_t)lpParam;
+    int clientId = (int)lpParam;
 
-    club.clients[clientId].arriveTick = GetTickCount();
-    club.clients[clientId].threadId = GetCurrentThreadId();
-    club.clients[clientId].served = FALSE;
-    club.clients[clientId].timeout = FALSE;
+    club.clients[clientId].Records.arriveTick = GetTickCount();
+    club.clients[clientId].Records.threadId = GetCurrentThreadId();
+
+    club.clients[clientId].Records.served = FALSE;
+    club.clients[clientId].Records.timeout = FALSE;
 
     DWORD waitResult;
 
@@ -47,7 +53,7 @@ DWORD WINAPI PC_Client(LPVOID lpParam) {
     }
 
     if (waitResult == WAIT_OBJECT_0) {
-        club.clients[clientId].startTick = GetTickCount();
+        club.clients[clientId].Records.startTick = GetTickCount();
 
         EnterCriticalSection(&csConsole);
         club.currentVisitors++;
@@ -56,11 +62,11 @@ DWORD WINAPI PC_Client(LPVOID lpParam) {
         }
         LeaveCriticalSection(&csConsole);
 
-        int workTime = 2000 + rand() % 3001;
+        int workTime = 2000 + rand() % 3000;
         Sleep(workTime);
 
-        club.clients[clientId].endTick = GetTickCount();
-        club.clients[clientId].served = TRUE;
+        club.clients[clientId].Records.endTick = GetTickCount();
+        club.clients[clientId].Records.served = TRUE;
 
         EnterCriticalSection(&csConsole);
         club.currentVisitors--;
@@ -73,7 +79,7 @@ DWORD WINAPI PC_Client(LPVOID lpParam) {
     }
     else {
         EnterCriticalSection(&csConsole);
-        club.clients[clientId].timeout = TRUE;
+        club.clients[clientId].Records.timeout = TRUE;
         club.timeoutCount++;
         LeaveCriticalSection(&csConsole);
     }
@@ -85,20 +91,22 @@ DWORD WINAPI Viewer(LPVOID lpParam) {
     HANDLE* clientThreads = (HANDLE*)lpParam;
 
     while (WaitForMultipleObjects(MAX_CLIENTS, clientThreads, TRUE, 500) == WAIT_TIMEOUT) {
+
         EnterCriticalSection(&csConsole);
         std::cout << "\nпк" << std::endl;
-        std::cout << "Занято мест (сейчас): " << club.currentVisitors << std::endl;
+        std::cout << "Занято мест : " << club.currentVisitors << std::endl;
         std::cout << "Обслужено: " << club.servedCount << std::endl;
-        std::cout << "Таймаут: " << club.timeoutCount << std::endl;
+        std::cout << "Не држдались: " << club.timeoutCount << std::endl;
         std::cout << "--------------------" << std::endl;
         LeaveCriticalSection(&csConsole);
+
     }
     return 0;
 }
 
 int main() {
-    setlocale(LC_ALL, "Russian");
-    srand((unsigned)time(0));
+    setlocale(2, "Rus");
+    srand(0);
 
     std::cout << "Выберите режим:\n1. С семафором\n2. Без семафора\n";
     int answer;
@@ -117,7 +125,7 @@ int main() {
 
     HANDLE threads[MAX_CLIENTS];
     for (int i = 0; i < MAX_CLIENTS; i++) {
-        threads[i] = CreateThread(NULL, 0, PC_Client, (LPVOID)(uintptr_t)i, 0, NULL);
+        threads[i] = CreateThread(NULL, 0, PC_Client, (LPVOID)i, 0, NULL);
 
         if (i < 8) SetThreadPriority(threads[i], THREAD_PRIORITY_NORMAL);
         else if (i < 16) SetThreadPriority(threads[i], THREAD_PRIORITY_BELOW_NORMAL);
@@ -133,22 +141,11 @@ int main() {
     double totalWait = 0, totalWork = 0;
     std::cout << "\nИтоги";
 
-    if (useSemaphore) {
-        std::cout << "Потоки, не севшие за комп:\n";
-        bool anyoneTimeout = false;
-        for (int i = 0; i < MAX_CLIENTS; i++) {
-            if (club.clients[i].timeout) {
-                std::cout << "ID: " << club.clients[i].threadId << std::endl;
-                anyoneTimeout = true;
-            }
-        }
-        if (!anyoneTimeout) std::cout << "Все дождались.\n";
-    }
-
+    
     for (int i = 0; i < MAX_CLIENTS; i++) {
-        if (club.clients[i].served) {
-            totalWait += (club.clients[i].startTick - club.clients[i].arriveTick);
-            totalWork += (club.clients[i].endTick - club.clients[i].startTick);
+        if (club.clients[i].Records.served) {
+            totalWait += (club.clients[i].Records.startTick - club.clients[i].Records.arriveTick);
+            totalWork += (club.clients[i].Records.endTick - club.clients[i].Records.startTick);
         }
     }
 
@@ -156,7 +153,7 @@ int main() {
         std::cout << "\nСреднее время ожидания: " << totalWait / club.servedCount << " мс" << std::endl;
         std::cout << "Среднее время обслуживания: " << totalWork / club.servedCount << " мс" << std::endl;
     }
-    std::cout << "Макс. число одновременно занятых мест: " << club.maxVisitors << std::endl;
+    std::cout << "Макс занятых мест: " << club.maxVisitors << std::endl;
 
     DeleteCriticalSection(&csConsole);
     if (useSemaphore) CloseHandle(hSemaphore);
