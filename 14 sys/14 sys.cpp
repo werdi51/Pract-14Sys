@@ -165,7 +165,7 @@ int main() {
 
     for (int i = 0; i < MAX_CLIENTS; i++)
     {
-        if (!club.clients[i].Records.served)
+        if (club.clients[i].Records.served)
         {
             std::cout << club.clients[i].name << std::endl;
         }
@@ -178,7 +178,7 @@ int main() {
 
     for (int i = 0; i < MAX_CLIENTS; i++)
     {
-        if (club.clients[i].Records.served)
+        if (!club.clients[i].Records.served)
         {
             std::cout << club.clients[i].name << std::endl;
         }
