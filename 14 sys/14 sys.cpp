@@ -124,10 +124,10 @@ int main() {
 
     if (useSemaphore) {
         hSemaphore = CreateSemaphore(NULL, CLUB_CAPACITY, CLUB_CAPACITY, NULL);
-        std::cout << "Semapor == Yes" << std::endl;
+        std::cout << "Semaphor == Yes" << std::endl;
     }
     else {
-        std::cout << "Semapor == No" << std::endl;
+        std::cout << "Semaphor == No" << std::endl;
     }
 
     HANDLE Clients[MAX_CLIENTS];
