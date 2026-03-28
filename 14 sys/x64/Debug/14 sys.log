@@ -1,2 +1,5 @@
 ﻿  14 sys.cpp
-  14 sys.vcxproj -> C:\Users\anton\OneDrive\Desktop\Sys\Pract_14\x64\Debug\14 sys.exe
+C:\Users\anton\Desktop\Pract-14Sys\14 sys\14 sys.cpp(40,20): warning C4311: приведение типов: усечение указателя из "LPVOID" в "int"
+C:\Users\anton\Desktop\Pract-14Sys\14 sys\14 sys.cpp(40,20): warning C4302: приведение типов: усечение из "LPVOID" к "int"
+C:\Users\anton\Desktop\Pract-14Sys\14 sys\14 sys.cpp(135,55): warning C4312: приведение типов: преобразование из "int" в "LPVOID" большего размера
+  14 sys.vcxproj -> C:\Users\anton\Desktop\Pract-14Sys\x64\Debug\14 sys.exe

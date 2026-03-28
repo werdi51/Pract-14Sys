@@ -2,6 +2,7 @@
 #include <iostream>
 #include <vector>
 #include <ctime>
+#include <string>
 
 #define MAX_CLIENTS 20
 #define CLUB_CAPACITY 4
@@ -33,9 +34,12 @@ struct ClubState {
 ClubState club = { 0 };
 HANDLE hSemaphore = NULL;
 CRITICAL_SECTION csConsole;
+int count = 0;
 
 DWORD WINAPI PC_Client(LPVOID lpParam) {
     int clientId = (int)lpParam;
+
+    count++;
 
     club.clients[clientId].Records.arriveTick = GetTickCount();
     club.clients[clientId].Records.threadId = GetCurrentThreadId();
@@ -43,16 +47,18 @@ DWORD WINAPI PC_Client(LPVOID lpParam) {
     club.clients[clientId].Records.served = FALSE;
     club.clients[clientId].Records.timeout = FALSE;
 
-    DWORD waitResult;
+    club.clients[clientId].name = "User " + std::to_string(count);
+
+    DWORD wait;
 
     if (useSemaphore) {
-        waitResult = WaitForSingleObject(hSemaphore, 3000);
+        wait = WaitForSingleObject(hSemaphore, 3000);
     }
     else {
-        waitResult = WAIT_OBJECT_0;
+        wait = WAIT_OBJECT_0;
     }
 
-    if (waitResult == WAIT_OBJECT_0) {
+    if (wait == WAIT_OBJECT_0) {
         club.clients[clientId].Records.startTick = GetTickCount();
 
         EnterCriticalSection(&csConsole);
@@ -88,16 +94,15 @@ DWORD WINAPI PC_Client(LPVOID lpParam) {
 }
 
 DWORD WINAPI Viewer(LPVOID lpParam) {
-    HANDLE* clientThreads = (HANDLE*)lpParam;
+    HANDLE* ClientshTreads = (HANDLE*)lpParam;
 
-    while (WaitForMultipleObjects(MAX_CLIENTS, clientThreads, TRUE, 500) == WAIT_TIMEOUT) {
+    while (WaitForMultipleObjects(MAX_CLIENTS, ClientshTreads, TRUE, 500) == WAIT_TIMEOUT) {
 
         EnterCriticalSection(&csConsole);
-        std::cout << "\nпк" << std::endl;
-        std::cout << "Занято мест : " << club.currentVisitors << std::endl;
-        std::cout << "Обслужено: " << club.servedCount << std::endl;
-        std::cout << "Не држдались: " << club.timeoutCount << std::endl;
-        std::cout << "--------------------" << std::endl;
+        std::cout << "\nPc" << std::endl;
+        std::cout << "Service: " << club.currentVisitors << std::endl;
+        std::cout << "Served: " << club.servedCount << std::endl;
+        std::cout << "not servered: " << club.timeoutCount << std::endl;
         LeaveCriticalSection(&csConsole);
 
     }
@@ -105,10 +110,12 @@ DWORD WINAPI Viewer(LPVOID lpParam) {
 }
 
 int main() {
-    setlocale(2, "Rus");
+
+    setlocale(0, "");
+
     srand(0);
 
-    std::cout << "Выберите режим:\n1. С семафором\n2. Без семафора\n";
+    std::wcout << L"choise status:\n1. semaphor\n2. without semaphor\n";
     int answer;
     std::cin >> answer;
     useSemaphore = (answer == 1);
@@ -117,29 +124,29 @@ int main() {
 
     if (useSemaphore) {
         hSemaphore = CreateSemaphore(NULL, CLUB_CAPACITY, CLUB_CAPACITY, NULL);
-        std::cout << "Запуск семафор" << std::endl;
+        std::cout << "Semapor == Yes" << std::endl;
     }
     else {
-        std::cout << "Запуск без семафора" << std::endl;
+        std::cout << "Semapor == No" << std::endl;
     }
 
-    HANDLE threads[MAX_CLIENTS];
+    HANDLE Clients[MAX_CLIENTS];
     for (int i = 0; i < MAX_CLIENTS; i++) {
-        threads[i] = CreateThread(NULL, 0, PC_Client, (LPVOID)i, 0, NULL);
+        Clients[i] = CreateThread(NULL, 0, PC_Client, (LPVOID)i, 0, NULL);
 
-        if (i < 8) SetThreadPriority(threads[i], THREAD_PRIORITY_NORMAL);
-        else if (i < 16) SetThreadPriority(threads[i], THREAD_PRIORITY_BELOW_NORMAL);
-        else SetThreadPriority(threads[i], THREAD_PRIORITY_HIGHEST);
+        if (i < 8) SetThreadPriority(Clients[i], THREAD_PRIORITY_NORMAL);
+        else if (i < 16) SetThreadPriority(Clients[i], THREAD_PRIORITY_BELOW_NORMAL);
+        else SetThreadPriority(Clients[i], THREAD_PRIORITY_HIGHEST);
     }
 
-    HANDLE hObserver = CreateThread(NULL, 0, Viewer, threads, 0, NULL);
-    SetThreadPriority(hObserver, THREAD_PRIORITY_LOWEST);
+    HANDLE Viever = CreateThread(NULL, 0, Viewer, Clients, 0, NULL);
+    SetThreadPriority(Viever, THREAD_PRIORITY_LOWEST);
 
-    WaitForMultipleObjects(MAX_CLIENTS, threads, TRUE, INFINITE);
-    WaitForSingleObject(hObserver, INFINITE);
+    WaitForMultipleObjects(MAX_CLIENTS, Clients, TRUE, INFINITE);
+    WaitForSingleObject(Viever, INFINITE);
 
     double totalWait = 0, totalWork = 0;
-    std::cout << "\nИтоги";
+    std::cout << "\nTotal";
 
     
     for (int i = 0; i < MAX_CLIENTS; i++) {
@@ -150,15 +157,42 @@ int main() {
     }
 
     if (club.servedCount > 0) {
-        std::cout << "\nСреднее время ожидания: " << totalWait / club.servedCount << " мс" << std::endl;
-        std::cout << "Среднее время обслуживания: " << totalWork / club.servedCount << " мс" << std::endl;
+        std::cout << "\naverage wait time: " << totalWait / club.servedCount << " ms" << std::endl;
+        std::cout << "average service time: " << totalWork / club.servedCount << " ms" << std::endl;
     }
-    std::cout << "Макс занятых мест: " << club.maxVisitors << std::endl;
+
+    std::cout << "Served Clients" << std::endl;
+
+    for (int i = 0; i < MAX_CLIENTS; i++)
+    {
+        if (!club.clients[i].Records.served)
+        {
+            std::cout << club.clients[i].name << std::endl;
+        }
+    
+    }
+
+    std::cout << std::endl;
+
+    std::cout << "not Served clients" << std::endl;
+
+    for (int i = 0; i < MAX_CLIENTS; i++)
+    {
+        if (club.clients[i].Records.served)
+        {
+            std::cout << club.clients[i].name << std::endl;
+        }
+
+    }
+
+    std::cout << std::endl;
+
+    std::cout << "Max count working PC's: " << club.maxVisitors << std::endl;
 
     DeleteCriticalSection(&csConsole);
     if (useSemaphore) CloseHandle(hSemaphore);
-    for (int i = 0; i < MAX_CLIENTS; i++) CloseHandle(threads[i]);
-    CloseHandle(hObserver);
+    for (int i = 0; i < MAX_CLIENTS; i++) CloseHandle(Clients[i]);
+    CloseHandle(Viever);
 
     return 0;
 }
